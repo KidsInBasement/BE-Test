@@ -6,6 +6,7 @@
 #include "anti_analysis.h"
 #include "be_report_scanner.h"
 #include "code_obfuscation.h"
+#include "iat_hook.h"
 
 // BattleEye Bypass Driver - Full Featured Version
 //
@@ -73,6 +74,17 @@ static NTSTATUS RealEntryImproved(PDRIVER_OBJECT DriverObject)
     // - Memory scanning
     EnableAntiAnalysis();
 
+    RANDOM_JUNK();
+    
+    // Install IAT hook for MmGetSystemRoutineAddress
+    // This hooks BEDaisy.sys's IAT instead of inline hooking ntoskrnl.exe
+    // Works with kdmapper (no CR0 bypass needed)
+    NTSTATUS hookStatus = InstallIATHook();
+    if (!NT_SUCCESS(hookStatus)) {
+        // Non-fatal - BEDaisy.sys may not be loaded yet
+        // Hook will be installed when BE loads
+    }
+
     OBFUSCATE_END();
 
     return STATUS_SUCCESS;
@@ -100,6 +112,9 @@ extern "C" VOID DriverUnload(PDRIVER_OBJECT DriverObject)
     UNREFERENCED_PARAMETER(DriverObject);
     
     OBFUSCATE_BEGIN();
+    
+    // Uninstall IAT hook
+    UninstallIATHook();
     
     // Disable anti-analysis
     DisableAntiAnalysis();
